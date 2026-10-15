@@ -1,0 +1,26 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #243247;
+  background: #f3f5f8;
+  line-height: 1.5;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; padding: 2rem 1rem; }
+main {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  border: 1px solid #d3dae4;
+  border-radius: 0.5rem;
+}
+h1 { margin-top: 0; }
+form { display: grid; gap: 0.5rem; }
+input, button { padding: 0.75rem; font: inherit; border-radius: 0.25rem; }
+input { border: 1px solid #78869a; margin-bottom: 0.5rem; min-width: 0; }
+button { border: 0; background: #2455a4; color: white; cursor: pointer; }
+button:disabled { opacity: 0.65; cursor: wait; }
+input:focus-visible, button:focus-visible { outline: 3px solid #edaa27; outline-offset: 2px; }
+#message { min-height: 1.5rem; font-weight: 600; }
+.practice-note { font-size: 0.9rem; color: #48576c; }
