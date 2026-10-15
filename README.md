@@ -114,5 +114,7 @@ if no files were generated, no artifact is uploaded. Artifacts are retained for
 7 days. Download and extract the artifact to inspect the HTML report and any
 failure screenshots or traces.
 
-The workflow is added, but its first hosted run is still pending. No additional
-packages or secrets are needed.
+The [first hosted run](https://github.com/noamgorelik/Projects/actions/runs/38677908439)
+passed TypeScript checking. Both Chromium sign-in tests executed and passed,
+using one worker. The run uploaded the `playwright-results` artifact.
+No additional packages or secrets are needed.
