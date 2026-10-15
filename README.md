@@ -97,3 +97,24 @@ Verification on October 14, 2026: `npm run typecheck` passed, and `npm test`
 executed exactly two Chromium tests: both passed, with no retries. The browser
 confirmed the exact success and invalid-credentials messages. No application
 correction was needed. Playwright stopped its own test server after the run.
+
+## Continuous integration (CI)
+
+The **Sign-in checks** GitHub Actions workflow runs on pull requests targeting
+`main` and pushes to `main`. On Ubuntu with Node.js 24, it installs the locked
+dependencies and Playwright Chromium with its system dependencies, then runs
+strict TypeScript checking and the existing two sign-in tests. Failures remain
+visible and fail the job.
+
+Find results in the pull request's checks or the repository's **Actions** tab.
+Open a workflow run to inspect step logs. Its **Artifacts** section provides the
+`playwright-results` download, containing any generated `playwright-report/` and
+`test-results/` files. Artifact upload is attempted even when earlier steps fail;
+if no files were generated, no artifact is uploaded. Artifacts are retained for
+7 days. Download and extract the artifact to inspect the HTML report and any
+failure screenshots or traces.
+
+The [first hosted run](https://github.com/noamgorelik/Projects/actions/runs/38677908439)
+passed TypeScript checking. Both Chromium sign-in tests executed and passed,
+using one worker. The run uploaded the `playwright-results` artifact.
+No additional packages or secrets are needed.
