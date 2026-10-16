@@ -7,6 +7,10 @@ const app = express();
 const publicDirectory = fileURLToPath(new URL('./public/', import.meta.url));
 const port = Number(process.env.PORT ?? 3000);
 const sessions = new Map();
+// Account data is separate from sessions so signing out does not reset it.
+const subscriptions = new Map([
+  ['demo@example.test', { plan: 'Practice Plus', status: 'active' }],
+]);
 const sessionLifetime = 60 * 60 * 1000;
 const cookieOptions = { httpOnly: true, sameSite: 'lax', path: '/' };
 
@@ -15,6 +19,20 @@ function sessionId(request) {
     .map((part) => part.trim())
     .find((part) => part.startsWith('practice_session='));
   return cookie?.slice('practice_session='.length);
+}
+
+function requireSession(request, response, next) {
+  const id = sessionId(request);
+  const session = sessions.get(id);
+  if (!session || session.expiresAt <= Date.now()) {
+    sessions.delete(id);
+    return response.status(401).json({
+      error: 'UNAUTHENTICATED',
+      message: 'Please sign in.',
+    });
+  }
+  request.user = session.user;
+  next();
 }
 
 function removeExpiredSessions() {
@@ -41,6 +59,14 @@ app.use(express.static(path.resolve(publicDirectory)));
 app.get('/health', (request, response) => {
   response.json({ status: 'ok' });
 });
+
+// Test-only data reset. Ordinary startup does not register this endpoint.
+if (process.env.PRACTICE_TEST_RESET === '1') {
+  app.post('/api/test/reset-subscription', (request, response) => {
+    subscriptions.set('demo@example.test', { plan: 'Practice Plus', status: 'active' });
+    response.status(204).end();
+  });
+}
 
 app.post('/api/login', (request, response) => {
   const { email, password } = request.body ?? {};
@@ -78,17 +104,24 @@ app.post('/api/login', (request, response) => {
   });
 });
 
-app.get('/api/me', (request, response) => {
-  const id = sessionId(request);
-  const session = sessions.get(id);
-  if (!session || session.expiresAt <= Date.now()) {
-    sessions.delete(id);
-    return response.status(401).json({
-      error: 'UNAUTHENTICATED',
-      message: 'Please sign in.',
+app.get('/api/me', requireSession, (request, response) => {
+  response.json({ user: request.user });
+});
+
+app.get('/api/subscription', requireSession, (request, response) => {
+  response.json({ subscription: subscriptions.get(request.user.email) });
+});
+
+app.post('/api/subscription/cancel', requireSession, (request, response) => {
+  if (!request.is('application/json') || request.body?.confirm !== true) {
+    return response.status(400).json({
+      error: 'INVALID_CONFIRMATION',
+      message: 'Send JSON with confirm set to true to cancel your subscription.',
     });
   }
-  response.json({ user: session.user });
+  const subscription = subscriptions.get(request.user.email);
+  subscription.status = 'cancelled';
+  response.json({ message: 'Subscription cancelled.', subscription });
 });
 
 app.post('/api/logout', (request, response) => {

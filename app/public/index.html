@@ -23,6 +23,27 @@
       <section id="account" hidden aria-labelledby="account-heading">
         <h2 id="account-heading">Your account</h2>
         <p id="account-email"></p>
+        <section id="subscription" aria-labelledby="subscription-heading">
+          <h3 id="subscription-heading">Your subscription</h3>
+          <dl>
+            <dt>Plan</dt>
+            <dd id="subscription-plan">—</dd>
+            <dt>Status</dt>
+            <dd id="subscription-status">—</dd>
+          </dl>
+          <p id="subscription-message" aria-live="polite"></p>
+          <button id="retry-subscription" type="button" hidden>Retry loading subscription</button>
+          <button id="cancel-subscription" type="button" hidden>Cancel subscription</button>
+          <section id="cancel-confirmation" aria-labelledby="confirmation-heading" hidden>
+            <h4 id="confirmation-heading" tabindex="-1">Confirm cancellation</h4>
+            <p>Cancel Practice Plus immediately? This is fictional practice data.
+              No payment will be taken or refunded.</p>
+            <div class="confirmation-actions">
+              <button id="keep-subscription" type="button">Keep subscription</button>
+              <button id="confirm-cancellation" type="button">Confirm cancellation</button>
+            </div>
+          </section>
+        </section>
         <button id="sign-out" type="button">Sign out</button>
       </section>
       <p id="message" role="status" aria-live="polite">Checking your session…</p>
