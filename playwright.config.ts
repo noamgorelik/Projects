@@ -15,7 +15,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm start',
-    env: { PORT: '3100' },
+    env: { PORT: '3100', PRACTICE_TEST_RESET: '1' },
     url: 'http://127.0.0.1:3100/health',
     reuseExistingServer: false,
   },

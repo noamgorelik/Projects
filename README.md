@@ -31,6 +31,10 @@ login responses. See the test section below for browser verification results.
 The session milestone's application portion is implemented: refresh restoration,
 sign-out, and rejection of unauthenticated account requests. Three new browser
 tests cover these flows alongside the two original sign-in tests.
+The subscription application's plan display and confirmed cancellation are now
+implemented. Five subscription tests have now been added alongside the five
+unchanged sign-in/session tests. User-observed manual checks and the visible
+ten-test run passed as recorded below. Hosted ten-test verification is pending.
 
 ## Setup and startup
 
@@ -62,9 +66,11 @@ GET `/health` returns `{"status":"ok"}`.
 
 This is a local HTTP session demonstration, not production authentication.
 The single fictional account is hard-coded for practice; do not enter real
-credentials. There is no database, subscription functionality, or account
-creation. Browser coverage includes five scenarios: correct and incorrect sign-in,
-refresh persistence, sign-out invalidation, and unauthenticated account access.
+credentials. There is no database or account creation. The subscription is
+fictional: no prices, payments, refunds, reactivation, or plan changes are
+implemented. The ten-test suite covers sign-in, sessions, subscription display,
+keeping/cancelling a subscription, unauthenticated requests, and one mobile
+viewport. The sign-in/session and subscription results are recorded separately.
 One-hour expiry and server restart behavior do not have automated coverage.
 
 ## Sessions and sign-out
@@ -106,6 +112,94 @@ an hour. Strict TypeScript checking passed, and both unchanged Chromium sign-in
 tests executed and passed with one worker and no retries at the application-only
 stage. The browser coverage added afterward is recorded below.
 
+## Fictional subscription
+
+After sign-in or session restoration, the account area loads a **Practice Plus**
+subscription. It starts **Active**. **Cancel subscription** opens an inline
+confirmation section with this text:
+
+> Cancel Practice Plus immediately? This is fictional practice data.
+> No payment will be taken or refunded.
+
+**Keep subscription** closes the section without sending a cancellation request.
+**Confirm cancellation** submits the request. After confirmed success, the page
+shows **Cancelled** and “Subscription cancelled.” Cancellation controls are then
+hidden. Cancellation is immediate and does not sign the user out.
+
+Subscription state is stored per account in server memory, separately from
+sessions. Cancellation survives refresh and signing out/in while the server
+runs. Restarting the server resets it to Active and clears all sessions. Other
+browser sessions for the same fictional account share the subscription; refresh
+to load its latest state. A database remains deferred to the later API/database
+milestone. A guarded reset endpoint now provides test isolation as described below.
+
+Both endpoints use the account from its valid session, never a submitted email,
+and return `Cache-Control: no-store`:
+
+- `GET /api/subscription`: 200 with
+  `{"subscription":{"plan":"Practice Plus","status":"active"}}`.
+  After cancellation, `status` is `"cancelled"`.
+- `POST /api/subscription/cancel`: requires JSON `{"confirm":true}` and returns
+  200 with `{"message":"Subscription cancelled.","subscription":{"plan":"Practice Plus","status":"cancelled"}}`.
+  Repeating a confirmed cancellation returns the same result.
+- Missing, unknown, or expired sessions receive the existing 401 response:
+  `{"error":"UNAUTHENTICATED","message":"Please sign in."}`.
+- For parsed requests, authentication is checked before confirmation validation.
+  Missing/invalid confirmation receives 400 with
+  `{"error":"INVALID_CONFIRMATION","message":"Send JSON with confirm set to true to cancel your subscription."}`
+  without changing state. Malformed JSON still uses the existing parser error.
+
+Loading and cancellation disable subscription controls while pending. Failed
+requests show a useful error and offer **Retry loading subscription**; cancellation
+can also be retried. A failure does not claim successful cancellation. If the
+network fails after the server processes cancellation, retry loading checks its
+actual status. Subscription API 401 responses show the signed-out view. Late
+subscription responses are ignored once sign-out begins. The existing exact
+login messages and session expiry rules are preserved.
+
+User-observed manual evidence supplied in this conversation:
+
+- Practice Plus initially displayed Active. `GET /api/subscription` returned
+  200 with `{"subscription":{"plan":"Practice Plus","status":"active"}}`.
+- Keep subscription closed confirmation without a cancellation POST.
+- Confirm cancellation sent `{"confirm":true}` and returned 200 with
+  `{"message":"Subscription cancelled.","subscription":{"plan":"Practice Plus","status":"cancelled"}}`.
+  The success message displayed and cancellation controls were hidden.
+- Cancelled persisted after refresh and sign-out/sign-in.
+- Restarting the server cleared the session and reset the subscription to Active.
+- At 390 × 844, text/buttons were readable with no overlap, cut-off content,
+  or horizontal scrolling. Keep, confirm, and refresh persistence worked.
+
+These are user observations, not checks independently rerun during the later
+code review. Earlier sign-in/session evidence remains recorded separately.
+
+Manual walkthrough:
+
+1. In the project folder, run `npm start` and open http://127.0.0.1:3000.
+   If you already run an older version, stop only that server you own and start
+   it again to load the changed server code. If 3000 is occupied by another
+   process, use `PORT=3001 npm start` and http://127.0.0.1:3001 instead.
+2. Sign in with `demo@example.test` / `Practice123!`. Inspect Practice Plus and
+   Active in the account area.
+3. Open cancellation, choose Keep subscription, and check the Network panel:
+   no cancellation request should be sent.
+4. Open it again and confirm. Inspect the successful POST response, Cancelled
+   status, success message, and hidden cancellation controls.
+5. Refresh, then sign out/in. The subscription should remain Cancelled.
+6. While signed out, inspect `GET /api/subscription` in the browser: expect 401.
+   During the later API checks, also verify unauthenticated cancellation,
+   invalid confirmation, and repeated confirmed cancellation.
+7. Use browser developer tools at a 390 × 844 viewport to inspect the layout,
+   confirmation text, and buttons. Restart your server to reset Active before
+   repeating the full cancellation flow. Restart also requires signing in again.
+8. Optionally use developer tools network controls to inspect loading/request
+   failure recovery. Return online and retry loading; avoid claiming success
+   from a failed request.
+
+The subscription manual observations above and headed automated results below
+now supplement the earlier syntax and TypeScript checks. Historical two-test
+and five-test records describe the earlier sign-in/session implementation.
+
 ## UI QA tests
 
 After `npm ci`, install Playwright's Chromium browser:
@@ -122,7 +216,8 @@ The initial development dependency installation command is:
 npm install --save-dev --save-exact @playwright/test@1.64.0 typescript@5.9.3 @types/node@24.19.2
 ```
 
-`npm run test:headed` runs the same five tests with the browser visible.
+`npm run test:headed` runs all ten tests with the browser visible. Its
+user-reported result is recorded in the subscription test section below.
 The tests use independent browser contexts, labeled fields, and the actual API.
 They verify login status/JSON/messages, account email after refresh, the browser
 logout's 204 status and cookie removal, rejection when replaying the deleted
@@ -167,6 +262,56 @@ underlying cause was not established. The response-cloning workaround has been
 removed in favor of the separate API checks described above. No application
 correction was needed. Tests used their own server on port 3100; the manual
 server on port 3000 was left alone.
+
+## Subscription tests and isolation
+
+`projects/ui-qa/tests/subscription.spec.ts` defines exactly five new tests:
+
+1. Signed-in account displays Practice Plus / Active.
+2. Keep subscription closes confirmation, sends no cancellation request during
+   the observed interaction through refresh, and retains Active. The test listens
+   for real requests rather than waiting a fixed time to infer absence.
+3. Confirm cancellation sends `{"confirm":true}`, returns 200, shows Cancelled
+   and the success message, hides cancellation controls, and survives refresh.
+   A separate confirmed API cancellation verifies the exact repeated-success JSON.
+4. Unauthenticated viewing and cancellation both return the exact existing 401 JSON.
+5. At 390 × 844, real controls complete cancellation and refresh, with horizontal
+   overflow checks before, during confirmation, and after cancellation/refresh.
+   This is a viewport check, not testing a physical mobile device.
+
+Browser response waits are registered before the actions that trigger them.
+Browser statuses and visible views are checked directly. Separate API requests
+check exact stored subscription JSON and the repeated-cancellation response;
+those bodies belong to separate requests, not the browser click response.
+There are no Fetch wrappers, mocked responses, arbitrary delays, or cookie-value
+logging. The five existing sign-in/session tests are unchanged.
+
+Subscription data is shared per account, so a new browser context alone cannot
+reset it. Before each subscription test, Playwright's API client calls
+`POST /api/test/reset-subscription`, which resets the fictional account's
+subscription to Active and returns 204 without changing sessions. The endpoint
+is registered only when `PRACTICE_TEST_RESET=1`. That flag is set only in
+Playwright's `webServer.env`, alongside `PORT=3100`. Ordinary `npm start` without
+the flag does not expose this endpoint. It is an unauthenticated test utility;
+do not enable it for a manual or deployed portal.
+
+All tests use the existing single port-3100 test server, one worker, and fresh
+browser/API contexts. No second server or CI changes were added. The manual
+portal server is left alone. The reported passing subscription tests exercised
+the enabled reset endpoint. Its absence during ordinary startup remains a code
+review conclusion, not a separately reported HTTP check.
+
+JavaScript syntax checking of the changed server and `npm run typecheck` passed;
+`git diff --check` passed. User-reported automated evidence:
+
+- The selected cancellation test passed in a visible Playwright debug run.
+- `npm run test:headed` executed all ten Chromium tests: **10 passed**, one
+  worker, total test-run duration **6.7 seconds**.
+
+No separate headless ten-test run is claimed. Hosted ten-test verification
+remains pending. These results were supplied by the user and were not rerun
+during the documentation update/code review. Historical results above and below
+remain separate from this ten-test run.
 
 ## Continuous integration (CI)
 
