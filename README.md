@@ -34,7 +34,8 @@ tests cover these flows alongside the two original sign-in tests.
 The subscription application's plan display and confirmed cancellation are now
 implemented. Five subscription tests have now been added alongside the five
 unchanged sign-in/session tests. User-observed manual checks and the visible
-ten-test run passed as recorded below. Hosted ten-test verification is pending.
+ten-test run passed as recorded below. Hosted ten-test verification also passed;
+the run is linked in the CI section.
 
 ## Setup and startup
 
@@ -308,8 +309,8 @@ JavaScript syntax checking of the changed server and `npm run typecheck` passed;
 - `npm run test:headed` executed all ten Chromium tests: **10 passed**, one
   worker, total test-run duration **6.7 seconds**.
 
-No separate headless ten-test run is claimed. Hosted ten-test verification
-remains pending. These results were supplied by the user and were not rerun
+No separate local headless ten-test run is claimed. Hosted ten-test verification
+passed as recorded in the CI section. These local results were supplied by the user and were not rerun
 during the documentation update/code review. Historical results above and below
 remain separate from this ten-test run.
 
@@ -338,3 +339,8 @@ The [hosted five-test run](https://github.com/noamgorelik/Projects/actions/runs/
 executed and passed all five Chromium tests with one worker. The test-run duration
 was 2.9 seconds. The workflow succeeded and uploaded `playwright-results`.
 The first hosted run above remains the historical two-test result.
+
+The [hosted ten-test run](https://github.com/noamgorelik/Projects/actions/runs/38839765677)
+executed and passed all ten Chromium tests with one worker. The test-run duration
+was 4.4 seconds, not the whole workflow duration. This is separate from the
+visible local ten-test run that passed in 6.7 seconds.
