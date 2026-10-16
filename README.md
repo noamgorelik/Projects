@@ -189,5 +189,7 @@ passed TypeScript checking. Both Chromium sign-in tests executed and passed,
 using one worker. The run uploaded the `playwright-results` artifact.
 No additional packages or secrets are needed.
 
-Hosted verification of the five-test suite is still pending. The
-linked first hosted run above remains the historical two-test result.
+The [hosted five-test run](https://github.com/noamgorelik/Projects/actions/runs/38832251247)
+executed and passed all five Chromium tests with one worker. The test-run duration
+was 2.9 seconds. The workflow succeeded and uploaded `playwright-results`.
+The first hosted run above remains the historical two-test result.
