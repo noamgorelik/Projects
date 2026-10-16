@@ -10,15 +10,22 @@
   <body>
     <main>
       <h1>Practice Portal</h1>
-      <p>A fictional SaaS subscription portal. This demo only checks credentials.</p>
-      <form id="sign-in-form">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" autocomplete="username" required>
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
-        <button type="submit">Sign in</button>
+      <p>A fictional SaaS subscription portal with practice sessions.</p>
+      <form id="sign-in-form" hidden>
+        <fieldset id="sign-in-fields" disabled>
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="username" required>
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+          <button type="submit">Sign in</button>
+        </fieldset>
       </form>
-      <p id="message" role="status" aria-live="polite"></p>
+      <section id="account" hidden aria-labelledby="account-heading">
+        <h2 id="account-heading">Your account</h2>
+        <p id="account-email"></p>
+        <button id="sign-out" type="button">Sign out</button>
+      </section>
+      <p id="message" role="status" aria-live="polite">Checking your session…</p>
       <p class="practice-note">Practice account: demo@example.test<br>Password: Practice123!</p>
     </main>
   </body>
