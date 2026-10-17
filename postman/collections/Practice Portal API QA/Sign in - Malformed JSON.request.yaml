@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{baseUrl}}/api/login"
+method: POST
+body:
+  type: json
+  content: '{"email":"demo@example.test",}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Malformed JSON returns 400", function () {
+          pm.response.to.have.status(400);
+      });
+
+      pm.test("Response explains the JSON parsing error", function () {
+          pm.expect(pm.response.json()).to.deep.equal({
+              error: "INVALID_JSON",
+              message: "Send a valid JSON request body."
+          });
+      });
+    language: text/javascript
+settings:
+  disableCookies: true
+order: 1881

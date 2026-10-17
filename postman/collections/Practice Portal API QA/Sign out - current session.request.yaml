@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/api/logout"
+method: POST
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Logout returns 204", function () {
+          pm.response.to.have.status(204);
+      });
+
+      pm.test("Logout response body is empty", function () {
+          pm.expect(pm.response.text()).to.equal("");
+      });
+    language: text/javascript
+order: 10994

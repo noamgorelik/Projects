@@ -10,6 +10,7 @@
     "start": "node app/server.js",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
+    "test:api": "playwright test --config=projects/api-qa/playwright.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
