@@ -1,0 +1,31 @@
+$kind: http-request
+url: "{{baseUrl}}/api/me"
+method: GET
+headers:
+  Cookie: practice_session={{sessionBeforeLogout}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("A saved session identifier was available for replay", function () {
+          pm.expect(
+              pm.collectionVariables.get("sessionBeforeLogout")
+          ).to.be.a("string").and.not.empty;
+      });
+
+      pm.test("Logged-out session is rejected with 401", function () {
+          pm.response.to.have.status(401);
+      });
+
+      pm.test("Response contains the expected authentication error", function () {
+          pm.expect(pm.response.json()).to.deep.equal({
+              error: "UNAUTHENTICATED",
+              message: "Please sign in."
+          });
+      });
+
+      // Remove the temporary identifier after this check.
+      pm.collectionVariables.unset("sessionBeforeLogout");
+    language: text/javascript
+settings:
+  disableCookies: true
+order: 15000

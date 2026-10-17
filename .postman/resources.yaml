@@ -1,0 +1,8 @@
+workspace:
+  id: 526de443-0008-493e-8252-fd64949b5735
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ../postman/collections/Practice Portal API QA: 29497189-90b931c7-1e83-462d-adb2-fc79d046ea92

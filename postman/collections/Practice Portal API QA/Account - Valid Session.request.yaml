@@ -1,0 +1,20 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/me"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Authenticated account request returns 200", function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test("Response contains the expected account", function () {
+          pm.expect(pm.response.json()).to.deep.equal({
+              user: {
+                  email: "demo@example.test"
+              }
+          });
+      });
+    language: text/javascript
+order: 3000

@@ -1,0 +1,27 @@
+$kind: http-request
+url: "{{baseUrl}}/api/subscription/cancel"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "confirm": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Confirmed cancellation returns 200", function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test("Response confirms the cancelled subscription", function () {
+          pm.expect(pm.response.json()).to.deep.equal({
+              message: "Subscription cancelled.",
+              subscription: {
+                  plan: "Practice Plus",
+                  status: "cancelled"
+              }
+          });
+      });
+    language: text/javascript
+order: 10970

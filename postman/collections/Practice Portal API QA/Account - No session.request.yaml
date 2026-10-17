@@ -1,0 +1,21 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/me"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Account request without a session returns 401", function () {
+          pm.response.to.have.status(401);
+      });
+
+      pm.test("Response explains that sign-in is required", function () {
+          pm.expect(pm.response.json()).to.deep.equal({
+              error: "UNAUTHENTICATED",
+              message: "Please sign in."
+          });
+      });
+    language: text/javascript
+settings:
+  disableCookies: true
+order: 1899

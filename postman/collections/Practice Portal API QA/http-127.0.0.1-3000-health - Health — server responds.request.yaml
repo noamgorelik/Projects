@@ -1,0 +1,18 @@
+$kind: http-request
+name: http://127.0.0.1:3000/health - Health — server responds
+url: "{{baseUrl}}/health"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("HTTP status is 200", function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test("Response body matches the health contract", function () {
+          pm.expect(pm.response.json()).to.deep.equal({
+              status: "ok"
+          });
+      });
+    language: text/javascript
+order: 1000
