@@ -8,7 +8,8 @@ product support skills through small, practical projects.
 - **UI QA:** Check user-facing flows and build automated browser tests.
 - **[API testing](projects/api-qa/README.md):** Native Postman collection:
   17 requests / 36 passing assertions. First automated API run: all 12 tests
-  passed (user-reported). Hosted API verification is pending.
+  passed (user-reported). Hosted API: 12 passed; UI regression: 10 passed.
+  Run links, test durations, and artifact results are in the API documentation.
 - **Support investigations:** Investigate practice issues and document findings
   and clear customer-facing explanations.
 

@@ -61,7 +61,8 @@ all 36 assertions, with zero failures or script errors. This is user-reported
 evidence, not an independently rerun result.
 
 The user-reported first automated API run passed all 12 tests. No execution
-duration was supplied. Hosted API verification remains pending.
+duration was supplied. Hosted API and UI regression verification passed as
+recorded in the CI section below.
 Existing UI automation and its historical results
 are separate from this API project. The automated tests use Playwright directly;
 they do not execute or convert the native Postman YAML. This native collection
@@ -139,5 +140,17 @@ shared type check, and runs `npm run test:api`. No browser installation is neede
 Results will appear in pull request checks and the repository's Actions tab.
 The workflow attempts to upload `playwright-report/api/` and `test-results/api/`
 even after a failed step, as the `api-results` artifact retained for seven days.
-Missing report files are ignored. Hosted API verification is still pending;
-adding the workflow is not evidence of a hosted pass.
+Missing report files are ignored.
+
+Verified hosted results supplied for this update:
+
+- [API run](https://github.com/noamgorelik/Projects/actions/runs/39051954118):
+  12 tests passed; test-run duration **1.5 seconds**. The workflow succeeded
+  and uploaded `api-results`.
+- [UI regression run](https://github.com/noamgorelik/Projects/actions/runs/39051954062):
+  10 tests passed; test-run duration **4.3 seconds**. The workflow succeeded
+  and uploaded `playwright-results`.
+
+These are test-run durations, not whole workflow durations. They are separate
+from the local API result, Postman evidence, and historical UI results. No tests
+were rerun during this documentation update.
