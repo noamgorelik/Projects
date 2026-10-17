@@ -178,6 +178,8 @@ User-observed evidence supplied in this conversation:
 - The user switched to corrected mode **without resetting the database**.
   Lowercase, uppercase, and surrounding-space requests all returned 200 with
   account 101, `alice@example.test`. Unknown email returned 404.
+- The combined input `email=%20ALICE@example.test%20` returned 404 in seeded
+  mode and 200 with account 101, `alice@example.test`, in corrected mode.
 
 These observations establish that the intentionally exact comparison, rather
 than a missing Alice account, caused the reproduced failures. Corrected mode
@@ -188,7 +190,7 @@ implementations against the same database, not a production deployment.
 See [cases/case-1.md](cases/case-1.md) for the completed report, evidence summary,
 engineering ticket, customer response, and verification checklist. No request
 IDs, timestamps, or raw transcripts were supplied, so none have been invented.
-Bob's lookup, combined case-plus-space input, missing/empty input, error body
+Bob's lookup, missing/empty input, error body
 contracts, and operational failure paths remain unreported runtime checks.
 Constraint enforcement and locking/cleanup were reviewed in code; they have
 not been independently fault-tested here. Mode switching does not by itself
@@ -196,6 +198,16 @@ prove every shutdown failure path works.
 
 Existing CI covers the completed portal UI/API projects, **not this support-lab
 investigation**. No automated lab or hosted lab verification is claimed.
+
+Hosted **portal regression** results supplied for this update:
+
+- [API run](https://github.com/noamgorelik/Projects/actions/runs/39079787829):
+  12 passed; test-run duration 1.6 seconds.
+- [UI run](https://github.com/noamgorelik/Projects/actions/runs/39079787835):
+  10 passed; test-run duration 5.5 seconds.
+
+These durations measure test runs, not whole workflows. These portal checks
+are separate from the manually verified lab and do not automate its investigation.
 
 This exercise uses SQLite. SQLite execution does **not** constitute Microsoft
 SQL Server (MSSQL) verification. No MSSQL instance, SQL Server collation behavior,

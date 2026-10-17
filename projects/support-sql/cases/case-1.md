@@ -51,6 +51,7 @@ in the URL. The README provides Postman instructions for repeating the exercise.
 | Corrected lowercase email | HTTP 200, account 101, `alice@example.test`. |
 | Corrected uppercase email | HTTP 200, account 101, `alice@example.test`. |
 | Corrected surrounding spaces | HTTP 200, account 101, `alice@example.test`. |
+| Combined `email=%20ALICE@example.test%20` | Seeded: 404. Corrected: 200, account 101, `alice@example.test`. |
 | Unknown email | HTTP 404. |
 
 These are summaries of user observations. Exact request IDs, timestamps,
@@ -117,7 +118,8 @@ Acceptance criteria and evidence status:
   account 101 and `alice@example.test`.
 - [x] Unknown email remains 404.
 - [x] Response request IDs are correlated with terminal logs.
-- [ ] Combined uppercase-plus-space input: not separately reported.
+- [x] Combined `email=%20ALICE@example.test%20`: seeded 404; corrected 200
+  with account 101, `alice@example.test` (user-observed).
 - [ ] Bob's lookup: not reported.
 - [ ] Missing, empty, and whitespace-only input returns controlled 400:
   implemented, but no runtime observation supplied.
@@ -144,3 +146,13 @@ Existing CI verifies the portal UI/API, not this lab. There are no automated
 or hosted lab results. SQLite investigation is not MSSQL verification; no
 SQL Server/T-SQL execution or collation behavior was tested. Cases 2/3 remain
 planned and are not implemented here.
+
+Hosted portal regression evidence supplied for this update (not lab automation):
+
+- [API](https://github.com/noamgorelik/Projects/actions/runs/39079787829):
+  12 passed, test-run duration 1.6 seconds.
+- [UI](https://github.com/noamgorelik/Projects/actions/runs/39079787835):
+  10 passed, test-run duration 5.5 seconds.
+
+These are test-run durations, not whole workflow durations. Case 1 remains
+manually verified from user observations, with no automated or hosted lab result.
