@@ -6,9 +6,10 @@ let database;
 let releaseLock;
 try {
   const { values } = parseArgs({ options: { case: { type: 'string' } } });
-  if (values.case !== '1') throw new Error('Use --case=1. Only Case 1 is implemented.');
+  const fixtures = { '1': './fixtures/case-1.sql', '2': './fixtures/case-2.sql' };
+  if (!Object.hasOwn(fixtures, values.case)) throw new Error('Use --case=1 or --case=2.');
   const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
-  const fixture = readFileSync(new URL('./fixtures/case-1.sql', import.meta.url), 'utf8');
+  const fixture = readFileSync(new URL(fixtures[values.case], import.meta.url), 'utf8');
   mkdirSync(dataDirectory, { recursive: true });
   releaseLock = acquireLabLock();
   database = openLabDatabase({ allowCreate: true });
@@ -23,7 +24,7 @@ try {
     database.exec('ROLLBACK;');
     throw error;
   }
-  console.log('Case 1 fictional lab data reset. No portal data or sessions were changed.');
+  console.log(`Case ${values.case} fictional lab data reset. No portal data or sessions were changed.`);
 } catch (error) {
   console.error(`Lab reset failed: ${error.message}`);
   process.exitCode = 1;
