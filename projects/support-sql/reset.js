@@ -6,8 +6,12 @@ let database;
 let releaseLock;
 try {
   const { values } = parseArgs({ options: { case: { type: 'string' } } });
-  const fixtures = { '1': './fixtures/case-1.sql', '2': './fixtures/case-2.sql' };
-  if (!Object.hasOwn(fixtures, values.case)) throw new Error('Use --case=1 or --case=2.');
+  const fixtures = {
+    '1': './fixtures/case-1.sql',
+    '2': './fixtures/case-2.sql',
+    '3': './fixtures/case-3.sql',
+  };
+  if (!Object.hasOwn(fixtures, values.case)) throw new Error('Use --case=1, --case=2, or --case=3.');
   const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
   const fixture = readFileSync(new URL(fixtures[values.case], import.meta.url), 'utf8');
   mkdirSync(dataDirectory, { recursive: true });

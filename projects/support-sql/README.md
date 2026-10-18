@@ -1,9 +1,10 @@
-# Product Support and SQL Investigation Lab — Cases 1 and 2
+# Product Support and SQL Investigation Lab — Three Cases
 
 This is an isolated fictional support exercise with an intentionally seeded
 lookup defect. It is not a discovered defect in the completed Practice Portal.
 Case 1 was manually verified using user-observed evidence recorded below.
-Case 2 is also manually verified from user observations; Case 3 remains planned. This documentation update did not independently rerun those checks.
+Cases 2 and 3 are also manually verified from user observations. All three
+planned support investigations now have manual evidence. This documentation update did not independently rerun those checks.
 
 The lab uses existing Express and Node's built-in `node:sqlite`, with no new
 dependencies. Setup capability checks found Node 24.21.0, an importable
@@ -34,10 +35,10 @@ lab restarts. Startup never seeds or resets it. Only an explicit reset restores
 the Case 1 fixture. The portal, its sessions, Postman collection, tests, CI, and
 dependencies are unchanged.
 
-Case 1 retains its account-lookup endpoint. Case 2 adds only the subscription
-lookup/cancellation investigation described below. Its `X-Lab-Account-Id` header
+Case 1 retains its account-lookup endpoint. Case 2 provides the subscription
+lookup/cancellation investigation; Case 3 provides only subscription lookup. Its `X-Lab-Account-Id` header
 selects a fictional fixture account and is **not authentication**. There is no
-frontend, payment processing, or Case 3 implementation. Bind address remains
+frontend, payment processing, or further cases. Bind address remains
 `127.0.0.1:3300`; other portal/test ports are unrelated.
 
 ## First reset and seeded startup
@@ -228,7 +229,7 @@ npm run support:reset -- --case=2
 npm run support:start -- --case=2 --mode=seeded
 ```
 
-The reset selector uses an explicit fixture-file allowlist for cases 1 and 2;
+The reset selector uses an explicit fixture-file allowlist for cases 1, 2, and 3;
 request/command input is never used to construct a fixture path. The schema,
 database location, exclusive lock, transaction/reset rules, local port 3300,
 and shutdown behavior are unchanged. Startup never resets the database. The
@@ -357,3 +358,151 @@ comparison, health payload, invalid-confirmation/header checks, or operational
 failure tests were supplied. Those checks remain unverified at runtime. Existing
 CI covers portal UI/API, not this lab investigation; no automated or hosted lab
 verification is claimed.
+
+## Case 3 — my subscription shows someone else's cancellation
+
+**Fictional report and intentionally seeded ownership-filter defect. Manually
+verified for the supplied Case 3 observations below.** Cases 1 and 2 retain their
+recorded user-observed results. This is the third and final planned case.
+
+See [cases/case-3.md](cases/case-3.md) for the completed investigation, engineering ticket, customer response,
+and acceptance checklist with remaining verification limits.
+This lab simulates a data-selection problem; it is not a real incident or a
+verified authentication system. The header below is fixture selection only.
+
+### Reset/start and response contracts
+
+With your lab stopped, from the repository root:
+
+```sh
+npm run support:reset -- --case=3
+npm run support:start -- --case=3 --mode=seeded
+```
+
+The explicit fixture allowlist now accepts 3. The schema, database path, lock,
+shutdown, local-only port 3300, and explicit-reset rules are preserved. Startup
+does not seed/reset anything. The fixture stores Alice account 101/subscription
+501/Practice Plus/active and Bob account 102/subscription 502/Practice Plus/cancelled.
+
+In Postman use `GET http://127.0.0.1:3300/api/subscription` with the Headers tab:
+
+| Selection | Header |
+| --- | --- |
+| Alice | `X-Lab-Account-Id: 101` |
+| Bob | `X-Lab-Account-Id: 102` |
+| Unknown | `X-Lab-Account-Id: 999` |
+
+Do not add session IDs or passwords. There is no Case 3 cancellation endpoint.
+Case 2 retains cancellation when started with `--case=2`.
+
+Implemented response contracts (observed outcomes and unperformed comparisons
+are distinguished in the evidence summary below):
+
+- Health: 200 with `{"status":"ok","lab":"support-sql","case":3,"mode":"seeded"}`;
+  corrected startup reports `"mode":"corrected"`.
+- Seeded GET for either known account: 200 with
+  `{"subscription":{"id":502,"account_id":102,"plan":"Practice Plus","status":"cancelled"}}`.
+  Bob's result is correct for Bob but wrong for Alice.
+- Corrected GET for Alice: 200 with
+  `{"subscription":{"id":501,"account_id":101,"plan":"Practice Plus","status":"active"}}`.
+  Corrected Bob GET returns the same Bob response shown above.
+- Missing/invalid header: 400 with
+  `{"error":"INVALID_ACCOUNT_CONTEXT","message":"Provide X-Lab-Account-Id as a positive integer."}`.
+- Unknown account 999: 404 with
+  `{"error":"ACCOUNT_NOT_FOUND","message":"Account not found."}` in both modes.
+  Account existence is checked before even the seeded lookup, so unknown
+  selections must never receive another account's subscription.
+
+The seeded query omits the ownership filter:
+
+```sql
+SELECT id, account_id, plan, status FROM subscriptions ORDER BY id DESC LIMIT 1;
+```
+
+Corrected mode uses `WHERE account_id = ?` and binds the selected account ID
+separately. Neither lookup changes account/subscription data. Highest numeric
+ID is not an ownership rule (nor proof of when a cancellation occurred).
+
+### Observe logs and SQL live — instructions, not evidence
+
+1. Check seeded health, then GET Alice and Bob independently. Correlate the
+   response `X-Request-Id` with the terminal JSON log. Compare the requested
+   account with the returned owner rather than checking only HTTP 200/status.
+2. Existing log fields remain. `accountId` keeps its requested-account meaning;
+   `requestedAccountId` makes that explicit. `returnedAccountId` and
+   `returnedSubscriptionId` describe the row actually returned. `resultCount`
+   is 1 for a found subscription, 0 for an empty lookup, and null if account
+   validation prevented the query. Returned IDs are null when no row is returned.
+   `rowsChanged` stays null for these read-only requests; it is not inferred as
+   zero from HTTP success. No password/session fields are logged.
+3. Open a second terminal and inspect the same file read-only:
+
+   ```sh
+   sqlite3 -readonly -header -column projects/support-sql/data/lab.sqlite
+   ```
+
+   At the SQLite prompt:
+
+   ```text
+   PRAGMA foreign_keys = ON;
+   .parameter init
+   .parameter set :account_id 101
+   .parameter list
+   .read projects/support-sql/queries/case-3.sql
+   .parameter set :account_id 102
+   .read projects/support-sql/queries/case-3.sql
+   .parameter set :account_id 999
+   .read projects/support-sql/queries/case-3.sql
+   ```
+
+   These are numeric bindings, not SQL string interpolation. The JOIN shows
+   actual account ownership and stored status. The unfiltered SELECT should
+   always show Bob; the filtered SELECT should show Alice, Bob, or no row for
+   101, 102, and 999 respectively. The standalone unfiltered SQL has no API
+   account-validation guard: its result for parameter 999 is not an expected
+   API response. Compare API behavior with both the SQL and validation code.
+4. Stop seeded mode with Ctrl+C and **do not reset**. Start:
+
+   ```sh
+   npm run support:start -- --case=3 --mode=corrected
+   ```
+
+5. Check health; GET Alice, Bob, Alice, Bob, changing only the fixture header.
+   Verify each full ID/owner/plan/status response and corresponding log fields.
+   GET 999 should return 404 in both modes. Also inspect missing/invalid headers.
+6. Rerun the joined/filtered SQL for both known accounts and compare with the
+   baseline: Alice remains 501/101/active and Bob 502/102/cancelled. Record actual
+   output to establish unchanged data; do not repair or UPDATE rows. Exit the
+   CLI with `.quit`. Stop only your own lab server when done.
+
+Corrected mode already contains the teaching correction; this comparison is
+not a production deployment. Initial implementation used static checks only;
+subsequent user-observed evidence is recorded below. Existing CI covers portal
+UI/API, not this lab. SQLite execution is not MSSQL verification.
+
+### Case 3 user-observed evidence and conclusion
+
+- Seeded health returned 200 identifying case 3 and seeded mode.
+- Alice GET returned 200 with subscription 502/account 102/cancelled;
+  logs showed requestedAccountId=101 and returnedAccountId=102.
+- Bob GET returned 200 with 502/102/cancelled; logs showed requestedAccountId=102
+  and returnedAccountId=102.
+- The SQL JOIN showed Alice 101/501/active and Bob 102/502/cancelled. Highest-ID
+  selection returned Bob's row; ownership filtering for 101 returned Alice's row.
+- Corrected mode was used without resetting. Alternating 101 → 102 → 101 → 102
+  produced four HTTP 200 responses: both Alice responses were 501/101/active,
+  both Bob responses 502/102/cancelled. Requested/returned account IDs matched
+  in corrected logs.
+- Unknown account 999 returned 404, account not found. The report did not specify
+  seeded-mode coverage or an exact error-JSON comparison.
+- Final SQL remained 501/101/active and 502/102/cancelled.
+
+This establishes a row-selection defect, not an actual cancellation of Alice's
+stored subscription. No data repair was needed for this fixture. Corrected mode
+was an existing teaching implementation, not a production fix. Fixture selection
+is not authentication; no real incident or production security verification is
+claimed. No request IDs, timestamps, or raw transcripts were supplied or invented.
+Missing/invalid header runtime checks, seeded unknown-account rejection, and
+exact error-JSON comparisons remain unreported. All observations are user-reported
+and were not rerun during this documentation review. There are no automated or
+hosted lab results.
