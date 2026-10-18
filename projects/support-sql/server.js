@@ -21,8 +21,8 @@ try {
   const { values } = parseArgs({ options: {
     case: { type: 'string' }, mode: { type: 'string' },
   } });
-  if (!['1', '2'].includes(values.case) || !['seeded', 'corrected'].includes(values.mode)) {
-    throw new Error('Use --case=1 or --case=2, with --mode=seeded or --mode=corrected.');
+  if (!['1', '2', '3'].includes(values.case) || !['seeded', 'corrected'].includes(values.mode)) {
+    throw new Error('Use --case=1, --case=2, or --case=3, with --mode=seeded or --mode=corrected.');
   }
   const selectedCase = Number(values.case);
   if (!existsSync(databasePath)) {
@@ -43,6 +43,8 @@ try {
     response.locals.resultCount = null;
     response.locals.accountId = null;
     response.locals.rowsChanged = null;
+    response.locals.returnedAccountId = null;
+    response.locals.returnedSubscriptionId = null;
     response.set('X-Request-Id', response.locals.requestId);
     response.set('Cache-Control', 'no-store');
     response.on('finish', () => {
@@ -53,6 +55,9 @@ try {
         lookupInput: response.locals.lookupInput,
         resultCount: response.locals.resultCount, status: response.statusCode,
         accountId: response.locals.accountId, rowsChanged: response.locals.rowsChanged,
+        requestedAccountId: response.locals.accountId,
+        returnedAccountId: response.locals.returnedAccountId,
+        returnedSubscriptionId: response.locals.returnedSubscriptionId,
       }));
     });
     next();
@@ -80,16 +85,14 @@ try {
     });
   }
 
-  if (selectedCase === 2) {
+  if (selectedCase === 2 || selectedCase === 3) {
     const findAccount = database.prepare('SELECT id FROM accounts WHERE id = ?');
-    const findSubscription = database.prepare(
-      'SELECT id, account_id, plan, status FROM subscriptions WHERE account_id = ?'
-    );
-    // Seeded defect: an account ID is incorrectly matched against subscription ID.
-    const cancellationSql = values.mode === 'seeded'
-      ? "UPDATE subscriptions SET status = 'cancelled' WHERE id = ?"
-      : "UPDATE subscriptions SET status = 'cancelled' WHERE account_id = ?";
-    const cancelSubscription = database.prepare(cancellationSql);
+    const unfilteredLookup = selectedCase === 3 && values.mode === 'seeded';
+    // Case 3 seeded defect: highest ID is selected without checking ownership.
+    const subscriptionSql = unfilteredLookup
+      ? 'SELECT id, account_id, plan, status FROM subscriptions ORDER BY id DESC LIMIT 1'
+      : 'SELECT id, account_id, plan, status FROM subscriptions WHERE account_id = ?';
+    const findSubscription = database.prepare(subscriptionSql);
 
     // This header selects fictional fixture data. It is NOT authentication.
     app.use('/api/subscription', (request, response, next) => {
@@ -107,35 +110,46 @@ try {
       }
       next();
     });
-    app.use('/api/subscription', express.json({ limit: '10kb' }));
+    if (selectedCase === 2) app.use('/api/subscription', express.json({ limit: '10kb' }));
 
     app.get('/api/subscription', (request, response) => {
-      const subscription = findSubscription.get(response.locals.accountId);
+      const subscription = unfilteredLookup
+        ? findSubscription.get()
+        : findSubscription.get(response.locals.accountId);
       response.locals.resultCount = subscription ? 1 : 0;
       if (!subscription) {
         return response.status(404).json({ error: 'SUBSCRIPTION_NOT_FOUND', message: 'Subscription not found.' });
       }
+      response.locals.returnedAccountId = subscription.account_id;
+      response.locals.returnedSubscriptionId = subscription.id;
       response.json({ subscription });
     });
 
-    app.post('/api/subscription/cancel', (request, response) => {
-      if (!request.is('application/json') || request.body?.confirm !== true) {
-        return response.status(400).json({
-          error: 'INVALID_CONFIRMATION',
-          message: 'Send JSON with confirm set to true to cancel your subscription.',
-        });
-      }
-      const outcome = cancelSubscription.run(response.locals.accountId);
-      response.locals.rowsChanged = Number(outcome.changes);
-      if (values.mode === 'corrected' && response.locals.rowsChanged !== 1) {
-        return response.status(409).json({
-          error: 'CANCELLATION_NOT_APPLIED',
-          message: 'Expected to update exactly one subscription. Cancellation was not confirmed.',
-        });
-      }
-      // Seeded mode intentionally reports success even when zero rows match.
-      response.json({ message: 'Subscription cancelled.' });
-    });
+    if (selectedCase === 2) {
+      // Seeded Case 2 defect: account ID is matched against subscription ID.
+      const cancellationSql = values.mode === 'seeded'
+        ? "UPDATE subscriptions SET status = 'cancelled' WHERE id = ?"
+        : "UPDATE subscriptions SET status = 'cancelled' WHERE account_id = ?";
+      const cancelSubscription = database.prepare(cancellationSql);
+      app.post('/api/subscription/cancel', (request, response) => {
+        if (!request.is('application/json') || request.body?.confirm !== true) {
+          return response.status(400).json({
+            error: 'INVALID_CONFIRMATION',
+            message: 'Send JSON with confirm set to true to cancel your subscription.',
+          });
+        }
+        const outcome = cancelSubscription.run(response.locals.accountId);
+        response.locals.rowsChanged = Number(outcome.changes);
+        if (values.mode === 'corrected' && response.locals.rowsChanged !== 1) {
+          return response.status(409).json({
+            error: 'CANCELLATION_NOT_APPLIED',
+            message: 'Expected to update exactly one subscription. Cancellation was not confirmed.',
+          });
+        }
+        // Seeded mode intentionally reports success even when zero rows match.
+        response.json({ message: 'Subscription cancelled.' });
+      });
+    }
   }
 
   app.use((request, response) => {
