@@ -1,10 +1,9 @@
-# Product Support and SQL Investigation Lab — Case 1
+# Product Support and SQL Investigation Lab — Cases 1 and 2
 
 This is an isolated fictional support exercise with an intentionally seeded
 lookup defect. It is not a discovered defect in the completed Practice Portal.
-Only the shared foundation and Case 1 are implemented. Case 1 was manually
-verified using user-observed evidence recorded below; Cases 2 and 3 remain
-planned. This documentation update did not independently rerun those checks.
+Case 1 was manually verified using user-observed evidence recorded below.
+Case 2 is also manually verified from user observations; Case 3 remains planned. This documentation update did not independently rerun those checks.
 
 The lab uses existing Express and Node's built-in `node:sqlite`, with no new
 dependencies. Setup capability checks found Node 24.21.0, an importable
@@ -35,10 +34,11 @@ lab restarts. Startup never seeds or resets it. Only an explicit reset restores
 the Case 1 fixture. The portal, its sessions, Postman collection, tests, CI, and
 dependencies are unchanged.
 
-Fixture identity headers belong to later subscription cases. No authentication,
-identity-header handling, subscription endpoints, frontend, or Cases 2/3 are
-added here. Bind address is fixed to `127.0.0.1:3300`; other portal/test ports
-are unrelated.
+Case 1 retains its account-lookup endpoint. Case 2 adds only the subscription
+lookup/cancellation investigation described below. Its `X-Lab-Account-Id` header
+selects a fictional fixture account and is **not authentication**. There is no
+frontend, payment processing, or Case 3 implementation. Bind address remains
+`127.0.0.1:3300`; other portal/test ports are unrelated.
 
 ## First reset and seeded startup
 
@@ -212,3 +212,148 @@ are separate from the manually verified lab and do not automate its investigatio
 This exercise uses SQLite. SQLite execution does **not** constitute Microsoft
 SQL Server (MSSQL) verification. No MSSQL instance, SQL Server collation behavior,
 or T-SQL compatibility has been tested.
+
+
+## Case 2 — cancellation reports success but remains Active
+
+**Fictional customer report and intentionally seeded defect. Case 2 is manually
+verified for the supplied observations below.** See [cases/case-2.md](cases/case-2.md)
+for the completed investigation, ticket, acceptance checklist, and customer response. Case 1's recorded
+results above remain unchanged and do not verify Case 2.
+
+Stop your lab server before explicitly resetting the shared lab database:
+
+```sh
+npm run support:reset -- --case=2
+npm run support:start -- --case=2 --mode=seeded
+```
+
+The reset selector uses an explicit fixture-file allowlist for cases 1 and 2;
+request/command input is never used to construct a fixture path. The schema,
+database location, exclusive lock, transaction/reset rules, local port 3300,
+and shutdown behavior are unchanged. Startup never resets the database. The
+Case 2 fixture contains Alice (account 101/subscription 501) and Bob (account
+102/subscription 502), both Active on Practice Plus. Only one selected case runs
+at a time. A reset intentionally replaces lab fixtures, so do not reset when
+comparing seeded and corrected mode.
+
+### Postman requests and response contracts
+
+Use `http://127.0.0.1:3300` with header `X-Lab-Account-Id: 101` for Alice, or
+`102` for Bob. This is a fixture selector, **not a login, session, or authorization
+boundary**. Do not send passwords or session IDs. A positive safe integer is
+required: missing/invalid IDs return 400 with
+`{"error":"INVALID_ACCOUNT_CONTEXT","message":"Provide X-Lab-Account-Id as a positive integer."}`.
+Unknown account IDs return 404 with
+`{"error":"ACCOUNT_NOT_FOUND","message":"Account not found."}`.
+
+- `GET /health`: 200 identifies lab, case 2, and selected mode.
+- `GET /api/subscription`: 200 with
+  `{"subscription":{"id":501,"account_id":101,"plan":"Practice Plus","status":"active"}}`
+  for Alice initially; after corrected cancellation the status is `"cancelled"`.
+  Bob's response uses IDs 502/102.
+- `POST /api/subscription/cancel`: set `Content-Type: application/json`,
+  `X-Lab-Account-Id: 101`, and raw JSON body `{"confirm":true}`.
+  Successful response is 200 with `{"message":"Subscription cancelled."}`.
+  Seeded mode deliberately returns this despite changing zero rows with these
+  fixtures. Corrected mode requires the statement to report exactly one row;
+  otherwise it returns 409 with `error: "CANCELLATION_NOT_APPLIED"` and message
+  `"Expected to update exactly one subscription. Cancellation was not confirmed."`.
+- Missing/invalid confirmation (for example `{"confirm":false}`) returns 400 with
+  `{"error":"INVALID_CONFIRMATION","message":"Send JSON with confirm set to true to cancel your subscription."}`.
+  No cancellation statement executes. Malformed JSON returns a controlled 400
+  `INVALID_JSON` error. A known account without a subscription returns 404
+  `SUBSCRIPTION_NOT_FOUND` on lookup; the supplied fixtures both have subscriptions.
+
+The server selects the account before checking cancellation confirmation.
+Input is always bound separately from SQL. There is no database-repair endpoint.
+
+### Repeatable investigation and verification instructions
+
+1. Reset/start Case 2 seeded mode. Verify health. GET Alice and Bob as baselines.
+2. POST invalid confirmation for Alice; expect 400, then GET both accounts to
+   check they remain Active. Also inspect missing/invalid/unknown ID handling.
+3. POST confirmed cancellation for Alice. Observe seeded 200, then GET Alice
+   again: expected Active. Correlate `X-Request-Id` with the terminal log.
+4. Inspect structured logs: `case`, `mode`, `accountId`, `status`, and
+   `rowsChanged`. Cancellation logs take `rowsChanged` directly from
+   `StatementSync.run().changes`, not from HTTP status. Expected seeded value is
+   0, but record the actual observation. Non-update requests leave it null.
+5. In another terminal open the database read-only and bind Alice's account ID:
+
+   ```sh
+   sqlite3 -readonly -header -column projects/support-sql/data/lab.sqlite
+   ```
+
+   At its prompt:
+
+   ```text
+   PRAGMA foreign_keys = ON;
+   .parameter init
+   .parameter set :account_id 101
+   .parameter list
+   .read projects/support-sql/queries/case-2.sql
+   ```
+
+   The saved SELECTs compare `id = :account_id` (defective update predicate)
+   with `account_id = :account_id` (ownership predicate). Expected: subscription
+   501 belongs to account 101; the former matches no row, the latter one row.
+   The joined listing shows both accounts and their stored statuses. Repeat
+   with `.parameter set :account_id 102` to inspect Bob. Do not execute UPDATE
+   statements in the CLI or repair the data manually.
+6. SQLite `changes()` is connection-local: the CLI's connection cannot report
+   the server connection's previous update. Use the correlated server
+   `rowsChanged` log for that statement, then SELECT stored state separately.
+   Repeating an update that already sets Cancelled may still report one matched
+   row; it does not imply another cancellation or a new state transition.
+7. Stop seeded mode with Ctrl+C and **do not reset**. Start:
+
+   ```sh
+   npm run support:start -- --case=2 --mode=corrected
+   ```
+
+   Confirm health mode, POST confirmed cancellation, inspect actual rowsChanged
+   (expected 1), then make a fresh GET: Alice should be Cancelled. Repeat the
+   confirmed POST and verify the same success JSON and stored Cancelled state.
+   GET Bob and rerun the read-only listing: he should remain Active.
+8. Stop/restart corrected mode using the same command, **without resetting**.
+   Fresh lookup and SQL should still show Alice Cancelled and Bob Active.
+   SQLite state survives process restart. Record this as evidence only after
+   performing it. Close the CLI with `.quit` when finished.
+
+Corrected mode already contains the teaching correction; comparing modes is
+not a production deployment. Existing portal CI does not investigate this lab.
+SQLite execution does not constitute MSSQL verification. Implementation setup
+used static checks only. The following runtime evidence was subsequently
+supplied by the user; this documentation review did not rerun it.
+
+### Case 2 user-observed evidence
+
+- Seeded reset/start succeeded. Alice GET returned 200 with subscription 501,
+  account 101, Active. Confirmed cancellation returned 200 with the success
+  message while the correlated log reported `rowsChanged=0`; a subsequent GET
+  returned 200 and still Active.
+- SQL showed Alice 501/101/active and Bob 502/102/active. With bound
+  `account_id=101`, `WHERE id = :account_id` matched zero rows;
+  `WHERE account_id = :account_id` found Alice's subscription 501.
+- Corrected mode was started without resetting. Cancellation returned 200 with
+  `rowsChanged=1`; Alice GET returned 200 with 501/101/cancelled, and Bob GET
+  returned 200 with 502/102/active.
+- Repeated confirmed cancellation returned 200 with `rowsChanged=1`. Alice
+  stayed Cancelled; Bob stayed Active. The repeated-update count is not a count
+  of new business events: it does not mean a second cancellation occurred.
+- After restarting corrected mode without reset, API and final SQL confirmed
+  Alice 501/101/cancelled and Bob 502/102/active.
+
+Bob's subscription ID is **502**, not 501; the user corrected that report typo.
+The account/subscription ID distinction is central to the diagnosis. These
+observations establish the wrong UPDATE predicate and false-success handling
+as the intentionally seeded cause, rather than a stale GET or delayed worker.
+Corrected mode already contained the teaching correction; this comparison was
+not a production deployment or manual database repair.
+
+No exact request IDs, timestamps, raw transcripts, repeated-response body
+comparison, health payload, invalid-confirmation/header checks, or operational
+failure tests were supplied. Those checks remain unverified at runtime. Existing
+CI covers portal UI/API, not this lab investigation; no automated or hosted lab
+verification is claimed.

@@ -10,8 +10,8 @@ product support skills through small, practical projects.
   17 requests / 36 passing assertions. First automated API run: all 12 tests
   passed (user-reported). Hosted API: 12 passed; UI regression: 10 passed.
   Run links, test durations, and artifact results are in the API documentation.
-- **[Product Support and SQL Lab](projects/support-sql/README.md):** Case 1
-  manually verified (user-observed); Cases 2 and 3 remain planned. Isolated
+- **[Product Support and SQL Lab](projects/support-sql/README.md):** Cases 1 and 2
+  manually verified (user-observed); Case 3 remains planned. Isolated
   fictional fixtures and seeded defects; existing CI covers the portal UI/API.
 
 All three projects will use a shared practice product: a fictional SaaS
